@@ -7,7 +7,58 @@
   --foreground: #ffffff;
 }
 
+:root[data-theme="light"] {
+  --background: #f3f5f7;
+  --foreground: #111827;
+}
+
 body {
   background-color: var(--background);
   color: var(--foreground);
+}
+
+:root[data-theme="light"] .bg-black {
+  background-color: #f3f5f7 !important;
+}
+
+:root[data-theme="light"] .text-white {
+  color: #111827 !important;
+}
+
+:root[data-theme="light"] .bg-zinc-950 {
+  background-color: #ffffff !important;
+}
+
+:root[data-theme="light"] .bg-zinc-900 {
+  background-color: #f8fafc !important;
+}
+
+:root[data-theme="light"] [class*="bg-zinc-900/"],
+:root[data-theme="light"] [class*="bg-zinc-950/"] {
+  background-color: rgba(248, 250, 252, 0.9) !important;
+}
+
+:root[data-theme="light"] .border-zinc-800 {
+  border-color: #d1d5db !important;
+}
+
+:root[data-theme="light"] .text-zinc-100 {
+  color: #111827 !important;
+}
+
+:root[data-theme="light"] .text-zinc-300 {
+  color: #334155 !important;
+}
+
+:root[data-theme="light"] .text-zinc-400 {
+  color: #475569 !important;
+}
+
+:root[data-theme="light"] .text-zinc-500,
+:root[data-theme="light"] .text-zinc-600 {
+  color: #64748b !important;
+}
+
+:root[data-theme="light"] .hover\:border-zinc-700:hover {
+  border-color: #94a3b8 !important;
 }

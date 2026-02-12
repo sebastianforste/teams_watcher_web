@@ -6,13 +6,13 @@ Status Key:
 - [x] Completed
 
 ## Improvements
-- [ ] **Dark Mode Toggle**: Currently hardcoded to dark mode; add a toggle for light mode.
-- [ ] **Config Parser**: Improve the `ConfigEditor` regex to handle array modification (adding keywords) more robustly. currently it might be brittle.
-- [ ] **Toast Notifications**: Add toast feedback when saving config or toggling service.
+- [x] **Dark Mode Toggle**: Added a top-bar theme toggle with light/dark persistence.
+- [x] **Config Parser**: Replaced brittle regex-only config updates with a line-oriented parser/updater.
+- [x] **Toast Notifications**: Added dashboard toasts for service control actions.
 
 ## Integration
-- [ ] **WebSocket Support**: Replace polling with a file watcher (chokidar) + WebSockets for instant updates.
-- [ ] **Recording Playback**: Allow playing back the `.m4a` files directly in the browser (would require serving the `Audiodateien` folder).
+- [x] **Live Status Streaming**: Added `/api/status/stream` (SSE) backed by file watchers, with frontend polling fallback.
+- [x] **Recording Playback**: Added recordings list and in-browser playback through `/api/recordings` endpoints.
 
 ## Documentation
 - [x] Create `docs/` folder.

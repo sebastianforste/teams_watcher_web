@@ -1,54 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Teams Watcher Web
 
-## Getting Started
+A Next.js 16 dashboard for monitoring and controlling the **Teams Voice Memos** automation system.
 
-First, run the development server:
+## 🚀 Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Live Status Monitor**: Real-time view of watcher state (`idle`, `recording`, `stopped`)
+- **Config Editor**: Edit trigger keywords and timing settings via web UI
+- **Log Viewer**: Browse recent activity logs without terminal commands
+- **Control Panel**: Start/stop the watcher remotely
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 📦 Tech Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Framework**: Next.js 16 (App Router)
+- **Styling**: Tailwind CSS
+- **Language**: TypeScript
+- **Validation**: Zod schemas for config safety
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🛠️ Setup
 
-## Learn More
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+2. Run the development server:
+   ```bash
+   npm run dev
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. Open [http://localhost:3000](http://localhost:3000) with your browser.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📂 Project Structure
 
-## Deploy on Vercel
+- `app/`: App Router pages and layouts
+- `components/`: UI components (ConfigForm, LogViewer)
+- `lib/`: Shared utilities and state management
+- `app/api/config/route.ts`: Config read/write API (validated with Zod)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Recent Improvements
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-
-## Development Standards
-
-This project follows the "Senior Staff Mentor" persona standards.
-
-### 1. Technology Stack
-*   **Python**: 3.12+ (Use modern features like `pathlib`, f-strings).
-*   **Typing**: Strict Type Hints with **Pydantic V2**.
-*   **Style**: **Black** formatting and **Ruff** linting.
-
-### 2. Engineering Principles
-*   **structure**: Code in `src/`, tests in `tests/`, docs in `docs/`.
-*   **Safety**: No secrets in code (use `.env`).
-*   **Testing**: `pytest` for all logic.
-
-### 3. Workflow
-*   **Commits**: Conventional Commits (e.g., `feat: add user login`).
+- ✅ **Zod validation**: Safe config editing with `config-schema.ts`
+- ✅ **Shell parser**: Safe reading/writing of `config.sh` without raw storage access
+- ✅ **Live status streaming**: `/api/status/stream` (SSE) with automatic client fallback polling
