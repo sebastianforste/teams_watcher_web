@@ -48,6 +48,7 @@ export default function Home() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [logLines, setLogLines] = useState(50);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [companionActionPending, setCompanionActionPending] = useState<"retry_post_process" | "acknowledge_incident" | null>(null);
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
@@ -212,6 +213,36 @@ export default function Home() {
     }
   };
 
+  const handleCompanionAction = async (
+    actionType: "retry_post_process" | "acknowledge_incident",
+    targetId: string
+  ) => {
+    setCompanionActionPending(actionType);
+    try {
+      const response = await fetch("/api/companion/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_name: "teams_recorder",
+          action_type: actionType,
+          target_id: targetId,
+          requested_by: "dashboard_user",
+          requested_at_utc: new Date().toISOString(),
+        }),
+      });
+      const payload = (await response.json()) as { accepted?: boolean; error?: string };
+      if (!response.ok || !payload.accepted) {
+        throw new Error(payload.error || "Companion action failed");
+      }
+      showToast("success", `Companion action accepted: ${actionType.replace(/_/g, " ")}`);
+      await fetchStatus(true);
+    } catch (error) {
+      showToast("error", error instanceof Error ? error.message : "Companion action failed");
+    } finally {
+      setCompanionActionPending(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black text-white p-8">
       <div className="max-w-6xl mx-auto space-y-8">
@@ -317,6 +348,47 @@ export default function Home() {
                     </div>
                  </div>
             </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-zinc-500">Return To Pending Action</p>
+              <h3 className="text-sm font-semibold text-white mt-1">Post-process queue requires follow-up</h3>
+              <p className="text-xs text-zinc-400 mt-2">
+                Retry stalled post-process operations and clear recorder backlog before starting a new capture window.
+              </p>
+            </div>
+            <Button
+              className="bg-indigo-600 hover:bg-indigo-700"
+              disabled={companionActionPending !== null}
+              onClick={() => handleCompanionAction("retry_post_process", "post_process_queue")}
+            >
+              {companionActionPending === "retry_post_process" ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
+              Retry Pending Post-process
+            </Button>
+          </div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-zinc-500">Acknowledgment</p>
+              <h3 className="text-sm font-semibold text-white mt-1">Incident review recommendation</h3>
+              <p className="text-xs text-zinc-400 mt-2">
+                Acknowledge the latest incident after validating transcript integrity and upload completion status.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              disabled={companionActionPending !== null}
+              onClick={() => handleCompanionAction("acknowledge_incident", "latest_incident")}
+            >
+              {companionActionPending === "acknowledge_incident" ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
+              Acknowledge Incident
+            </Button>
+          </div>
         </div>
 
         {/* Main Content Tabs */}

@@ -10,6 +10,7 @@ type RecordingItem = {
   size: number;
   modifiedAt: string;
   hasSummary: boolean;
+  hasTranscript: boolean;
 };
 
 type RecordingsResponse = {
@@ -31,6 +32,8 @@ export function RecordingsBrowser() {
   const [recordings, setRecordings] = useState<RecordingItem[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
+  const [transcript, setTranscript] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"summary" | "transcript">("summary");
   const [exportFolder, setExportFolder] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -75,26 +78,54 @@ export function RecordingsBrowser() {
   }, [fetchRecordings]);
 
   useEffect(() => {
-    const loadSummary = async () => {
-      if (!selectedItem || !selectedItem.hasSummary) {
+    const loadIntelligence = async () => {
+      if (!selectedItem) {
         setSummary(null);
+        setTranscript(null);
         return;
       }
 
-      const summaryName = `${selectedItem.name.replace(/\.m4a$/i, "")}.md`;
-      try {
-        const res = await fetch(`/api/recordings/${encodeURIComponent(summaryName)}`);
-        if (!res.ok) {
-          throw new Error();
+      const baseName = selectedItem.name.replace(/\.m4a$/i, "");
+      
+      // Load Summary
+      if (selectedItem.hasSummary) {
+        try {
+          // Try tailored _summary.md first
+          let res = await fetch(`/api/recordings/${encodeURIComponent(`${baseName}_summary.md`)}`);
+          if (!res.ok) {
+            // Fallback to legacy .md
+            res = await fetch(`/api/recordings/${encodeURIComponent(`${baseName}.md`)}`);
+          }
+          if (res.ok) setSummary(await res.text());
+        } catch {
+          setSummary(null);
         }
-        setSummary(await res.text());
-      } catch {
+      } else {
         setSummary(null);
+      }
+
+      // Load Transcript
+      if (selectedItem.hasTranscript) {
+        try {
+          const res = await fetch(`/api/recordings/${encodeURIComponent(`${baseName}_transcript.md`)}`);
+          if (res.ok) setTranscript(await res.text());
+        } catch {
+          setTranscript(null);
+        }
+      } else {
+        setTranscript(null);
       }
     };
 
-    void loadSummary();
+    void loadIntelligence();
   }, [selectedItem]);
+
+  // Default to summary if transcript selected but not available
+  useEffect(() => {
+    if (viewMode === "transcript" && !transcript && summary) {
+      setViewMode("summary");
+    }
+  }, [viewMode, transcript, summary]);
 
   if (loading) {
     return (
@@ -150,7 +181,10 @@ export function RecordingsBrowser() {
                       {new Date(item.modifiedAt).toLocaleString()} · {bytesToSize(item.size)}
                     </p>
                   </div>
-                  {item.hasSummary && <FileText className="h-4 w-4 text-zinc-400" />}
+                  <div className="flex gap-1">
+                    {item.hasSummary && <FileText className="h-4 w-4 text-emerald-400" />}
+                    {item.hasTranscript && <RefreshCw className="h-4 w-4 text-blue-400" />}
+                  </div>
                 </div>
               </button>
             ))}
@@ -160,50 +194,84 @@ export function RecordingsBrowser() {
 
       <Card className="lg:col-span-2 bg-zinc-950 border-zinc-800">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm text-zinc-300 flex items-center gap-2">
-            <Music2 className="h-4 w-4" />
-            Playback
+          <CardTitle className="text-sm text-zinc-300 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Music2 className="h-4 w-4" />
+              <span>Playback</span>
+            </div>
+            {selectedItem && (summary || transcript) && (
+              <div className="flex bg-zinc-900 rounded-md p-1 gap-1">
+                {summary && (
+                  <button
+                    onClick={() => setViewMode("summary")}
+                    className={`px-3 py-1 rounded text-xs transition-all ${
+                      viewMode === "summary" ? "bg-zinc-800 text-emerald-400" : "text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    Summary
+                  </button>
+                )}
+                {transcript && (
+                  <button
+                    onClick={() => setViewMode("transcript")}
+                    className={`px-3 py-1 rounded text-xs transition-all ${
+                      viewMode === "transcript" ? "bg-zinc-800 text-blue-400" : "text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    Transcript
+                  </button>
+                )}
+              </div>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0 space-y-4">
           {!selectedItem && <p className="text-sm text-zinc-500">Select a recording to play.</p>}
           {selectedItem && (
             <>
-              <p className="text-sm text-zinc-300">{selectedItem.name}</p>
+              <p className="text-sm text-zinc-300 font-mono text-emerald-500">{selectedItem.name}</p>
               <div className="flex flex-wrap gap-2">
-                <Button asChild size="sm" variant="outline">
+                <Button asChild size="sm" variant="outline" className="h-8">
                   <a
                     href={`/api/recordings/${encodeURIComponent(selectedItem.name)}`}
                     download={selectedItem.name}
                   >
                     <Download className="h-4 w-4" />
-                    Download audio
+                    Audio
                   </a>
                 </Button>
                 {selectedItem.hasSummary && (
-                  <Button asChild size="sm" variant="outline">
+                   <Button asChild size="sm" variant="outline" className="h-8">
                     <a
                       href={`/api/recordings/${encodeURIComponent(
-                        `${selectedItem.name.replace(/\.m4a$/i, "")}.md`,
+                        selectedItem.hasTranscript ? `${selectedItem.name.replace(/\.m4a$/i, "")}_transcript.md` : `${selectedItem.name.replace(/\.m4a$/i, "")}.md`
                       )}`}
                       target="_blank"
                       rel="noreferrer"
                     >
                       <FileText className="h-4 w-4" />
-                      Open summary
+                      Raw Intelligence
                     </a>
                   </Button>
                 )}
               </div>
               <audio
                 controls
-                className="w-full"
+                className="w-full h-10 filter invert brightness-125"
                 src={`/api/recordings/${encodeURIComponent(selectedItem.name)}`}
               />
-              {summary && (
-                <div className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3">
-                  <p className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Summary</p>
-                  <pre className="whitespace-pre-wrap break-words text-xs text-zinc-300">{summary}</pre>
+              {viewMode === "summary" && summary && (
+                <div className="rounded-md border border-emerald-900/30 bg-zinc-900/50 p-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <p className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold mb-3">Strategic Intelligence Summary</p>
+                  <div className="prose prose-invert prose-xs max-w-none">
+                    <pre className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-zinc-300 font-sans">{summary}</pre>
+                  </div>
+                </div>
+              )}
+              {viewMode === "transcript" && transcript && (
+                <div className="rounded-md border border-blue-900/30 bg-zinc-900/50 p-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <p className="text-[10px] uppercase tracking-widest text-blue-500 font-bold mb-3">Verbatim Transcript</p>
+                  <pre className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-zinc-400 font-sans">{transcript}</pre>
                 </div>
               )}
             </>

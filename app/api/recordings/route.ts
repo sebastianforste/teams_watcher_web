@@ -12,6 +12,7 @@ type RecordingItem = {
   size: number;
   modifiedAt: string;
   hasSummary: boolean;
+  hasTranscript: boolean;
 };
 
 async function resolveExportFolder(): Promise<string> {
@@ -36,7 +37,7 @@ export async function GET(req: Request) {
   try {
     const exportFolder = await resolveExportFolder();
     const entries = await readdir(exportFolder, { withFileTypes: true });
-    const summaryByBase = new Set<string>();
+    const markdownFiles = new Set<string>();
     const recordings: RecordingItem[] = [];
 
     for (const entry of entries) {
@@ -48,7 +49,7 @@ export async function GET(req: Request) {
       const fullPath = path.join(exportFolder, entry.name);
 
       if (ext === ".md") {
-        summaryByBase.add(path.basename(entry.name, ".md"));
+        markdownFiles.add(entry.name);
         continue;
       }
       if (ext !== ".m4a") {
@@ -61,11 +62,14 @@ export async function GET(req: Request) {
         size: fileStat.size,
         modifiedAt: fileStat.mtime.toISOString(),
         hasSummary: false,
+        hasTranscript: false,
       });
     }
 
     for (const item of recordings) {
-      item.hasSummary = summaryByBase.has(path.basename(item.name, ".m4a"));
+      const baseName = path.basename(item.name, ".m4a");
+      item.hasSummary = markdownFiles.has(`${baseName}_summary.md`) || markdownFiles.has(`${baseName}.md`);
+      item.hasTranscript = markdownFiles.has(`${baseName}_transcript.md`);
     }
 
     recordings.sort((a, b) => Date.parse(b.modifiedAt) - Date.parse(a.modifiedAt));
