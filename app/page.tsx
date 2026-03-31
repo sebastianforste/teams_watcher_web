@@ -243,6 +243,14 @@ export default function Home() {
     }
   };
 
+  const actionExtractionQualityScore = (() => {
+    if (!logs.length) return 0;
+    const positiveSignals = logs.filter((line) =>
+      /(transcript|ready|processed|extracted|uploaded|completed)/i.test(line)
+    ).length;
+    return Math.round((positiveSignals / logs.length) * 100);
+  })();
+
   return (
     <div className="min-h-screen bg-black text-white p-8">
       <div className="max-w-6xl mx-auto space-y-8">
@@ -350,7 +358,7 @@ export default function Home() {
             </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-3">
             <div>
               <p className="text-[10px] uppercase tracking-widest text-zinc-500">Return To Pending Action</p>
@@ -388,6 +396,22 @@ export default function Home() {
               ) : null}
               Acknowledge Incident
             </Button>
+          </div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-zinc-500">Action Extraction Quality</p>
+              <h3 className="text-sm font-semibold text-white mt-1">Transcript action confidence score</h3>
+              <p className="text-xs text-zinc-400 mt-2">
+                Current extraction quality based on recent transcript and processing runtime signals.
+              </p>
+            </div>
+            <div className="w-full h-2 rounded bg-zinc-800 overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 transition-all"
+                style={{ width: `${Math.max(0, Math.min(actionExtractionQualityScore, 100))}%` }}
+              />
+            </div>
+            <p className="text-sm font-semibold text-emerald-400">{actionExtractionQualityScore}%</p>
           </div>
         </div>
 

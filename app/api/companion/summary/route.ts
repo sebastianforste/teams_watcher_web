@@ -17,6 +17,12 @@ export async function GET() {
       pending_action_count: pending.length,
       return_to_pending_action: pending[0] ?? null,
       recommended_actions: ["retry_post_process", "acknowledge_incident"],
+      continuation_prompt: "Return to pending recording and post-process actions to maintain operational continuity.",
+      completion_recap: {
+        title: "Recording continuity recap",
+        body: "Acknowledge recap after resolution to sustain the weekly monitoring loop.",
+        acknowledge_route: "/api/companion/acknowledge-recap",
+      },
       generated_at_utc: new Date().toISOString(),
     });
   } catch {
@@ -26,6 +32,12 @@ export async function GET() {
       pending_action_count: 0,
       return_to_pending_action: null,
       recommended_actions: ["retry_post_process", "acknowledge_incident"],
+      continuation_prompt: "Return to pending recording actions as new incidents arrive.",
+      completion_recap: {
+        title: "Recording continuity recap",
+        body: "Acknowledge recap after resolution to sustain the weekly monitoring loop.",
+        acknowledge_route: "/api/companion/acknowledge-recap",
+      },
       generated_at_utc: new Date().toISOString(),
     });
   }

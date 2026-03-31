@@ -32,6 +32,36 @@ const CompanionActionSchema = z.object({
 
 type CompanionState = Record<string, Record<string, unknown>>;
 
+function retentionProperties(
+  feature: string,
+  retentionSurfaceId: string,
+  retentionActionType: string,
+  valueLoopStage: string,
+  extra: Record<string, string | number | boolean> = {},
+): Record<string, string | number | boolean> {
+  const fundamentalFeatureId =
+    typeof extra.fundamental_feature_id === "string" && extra.fundamental_feature_id
+      ? extra.fundamental_feature_id
+      : retentionSurfaceId;
+  const activationStep =
+    typeof extra.activation_step === "string" && extra.activation_step
+      ? extra.activation_step
+      : retentionActionType;
+  return {
+    feature,
+    retention_surface_id: retentionSurfaceId,
+    retention_action_type: retentionActionType,
+    followup_window_day: 7,
+    value_loop_stage: valueLoopStage,
+    fundamental_feature_id: fundamentalFeatureId,
+    activation_step: activationStep,
+    entry_surface: "companion_action",
+    release_version: process.env.npm_package_version ?? "1.0.0",
+    build_channel: process.env.NODE_ENV ?? "development",
+    ...extra,
+  };
+}
+
 async function hasExistingActions(): Promise<boolean> {
   try {
     const raw = await readFile(ACTIONS_LOG_PATH, "utf8");
@@ -197,12 +227,13 @@ export async function POST(req: Request) {
     session_id: id,
     platform: "companion_api",
     timestamp_utc: acceptedAtUtc,
-    properties: {
-      feature: actionType,
-      entry_surface: "companion_action",
-      release_version: process.env.npm_package_version ?? "1.0.0",
-      build_channel: process.env.NODE_ENV ?? "development",
-    },
+    properties: retentionProperties(
+      actionType,
+      "teams_recorder_companion_continuation_card",
+      "tap",
+      "activation",
+      { source: "companion_action" },
+    ),
   });
 
   return NextResponse.json({
