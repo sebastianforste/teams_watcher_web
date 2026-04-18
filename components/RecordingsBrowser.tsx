@@ -261,10 +261,33 @@ export function RecordingsBrowser() {
                 src={`/api/recordings/${encodeURIComponent(selectedItem.name)}`}
               />
               {viewMode === "summary" && summary && (
-                <div className="rounded-md border border-emerald-900/30 bg-zinc-900/50 p-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <p className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold mb-3">Strategic Intelligence Summary</p>
-                  <div className="prose prose-invert prose-xs max-w-none">
-                    <pre className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-zinc-300 font-sans">{summary}</pre>
+                <div className="rounded-xl border border-emerald-500/20 bg-zinc-950/40 p-6 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="flex items-center justify-between mb-6 border-b border-zinc-800 pb-4">
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-emerald-500 font-black">Strategic Intelligence Report</p>
+                    <div className="flex gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/40" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/10" />
+                    </div>
+                  </div>
+                  <div className="space-y-6">
+                    {summary.split('\n\n').map((block, i) => {
+                      if (block.startsWith('# ')) {
+                        return <h1 key={i} className="text-2xl font-bold text-zinc-100 mt-2 mb-4 tracking-tight">{block.replace('# ', '')}</h1>;
+                      }
+                      if (block.startsWith('## ')) {
+                        return <h2 key={i} className="text-xs uppercase tracking-[0.2em] font-black text-emerald-400/80 mt-8 mb-4">{block.replace('## ', '')}</h2>;
+                      }
+                      return (
+                        <p key={i} className="text-[15px] leading-[1.8] text-zinc-300 font-light tracking-wide mb-4 last:mb-0">
+                          {block}
+                        </p>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-8 pt-4 border-t border-zinc-900 flex justify-between items-center opacity-40">
+                    <span className="text-[9px] uppercase tracking-widest font-mono">StrategyOS / Alpha Gen</span>
+                    <span className="text-[9px] uppercase tracking-widest font-mono">Verified Intel</span>
                   </div>
                 </div>
               )}

@@ -114,7 +114,7 @@ describe("Teams Dashboard Setup", () => {
 
   it("renders the dashboard heading", async () => {
     render(<Page />);
-    expect(await screen.findByText(/teams watcher/i)).toBeTruthy();
+    expect(await screen.findByText(/StrategyOS/i)).toBeTruthy();
   });
 
   it("loads and applies saved theme preference", async () => {

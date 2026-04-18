@@ -1,20 +1,20 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const outfit = Outfit({
   subsets: ["latin"],
+  variable: "--font-outfit",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
-  title: "Teams Recorder Dashboard",
-  description: "Monitor, control, and configure the Teams Voice Memos watcher.",
+  title: "Teams Recorder | World-Class Automation",
+  description: "Monitor and control the Teams Voice Memos engine with a premium dashboard.",
 };
 
 export default function RootLayout({
@@ -23,10 +23,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    <html lang="en" className="dark">
+      <body className={`${outfit.variable} ${jetbrainsMono.variable} font-sans antialiased text-white bg-black`}>
+        <div className="fixed inset-0 -z-50 bg-[radial-gradient(circle_at_50%_0%,_#1a1a1a_0%,_#000000_100%)] opacity-100"></div>
+        <div className="fixed inset-0 -z-40 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
         {children}
       </body>
     </html>

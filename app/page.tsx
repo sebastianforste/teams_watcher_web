@@ -1,476 +1,145 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { StatusHero } from "@/components/StatusHero";
-import { LogViewer } from "@/components/LogViewer";
-import { ConfigEditor } from "@/components/ConfigEditor";
-import { RecordingsBrowser } from "@/components/RecordingsBrowser";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  RefreshCw,
-  RotateCcw,
-  Sun,
-  Moon,
-  Play,
-  Square,
-  Loader2,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-} from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Mic, Activity, Calendar, History, Settings, CheckCircle2, AlertCircle, PlayCircle, StopCircle, ChevronRight, Download, MoreHorizontal } from "lucide-react";
 
-type WatcherStatus = {
-  state?: string;
-  meeting?: string;
-  timestamp?: string;
-  [key: string]: string | undefined;
-};
+export default function Dashboard() {
+  const [status, setStatus] = useState("IDLE");
+  const [recordings, setRecordings] = useState([
+    { id: 1, name: "Meeting - Hithium Quotation", date: "Today, 10:15 AM", duration: "1h 12m", size: "42.5 MB", status: "Processed" },
+    { id: 2, name: "Internal Sync - StrategyOS", date: "Yesterday, 2:30 PM", duration: "45m 10s", size: "18.2 MB", status: "Transcribing" },
+    { id: 3, name: "Client Call - gunnerCooke", date: "April 1, 9:00 AM", duration: "32m 05s", size: "12.8 MB", status: "Ready" },
+  ]);
 
-type StatusApiResponse = {
-  status: WatcherStatus;
-  logs: string[];
-  meta?: {
-    lines: number;
-    bytes: number;
-  };
-};
-
-const LIVE_STATUS_RECONNECT_LIMIT = 3;
-const STATUS_POLL_INTERVAL_MS = 3000;
-
-export default function Home() {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
-  const [status, setStatus] = useState<WatcherStatus>({});
-  const [logs, setLogs] = useState<string[]>([]);
-  const [statusError, setStatusError] = useState<string | null>(null);
-  const [controlPending, setControlPending] = useState<"start" | "restart" | "stop" | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [logLines, setLogLines] = useState(50);
-  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [companionActionPending, setCompanionActionPending] = useState<"retry_post_process" | "acknowledge_incident" | null>(null);
-
-  const showToast = (type: "success" | "error", message: string) => {
-    setToast({ type, message });
-  };
-
-  const applySnapshot = useCallback((snapshot: StatusApiResponse) => {
-    setStatus(snapshot.status);
-    setLogs(snapshot.logs);
-    setStatusError(null);
+  // Simulate status polling
+  useEffect(() => {
+    // In real app, we would fetch from API or read from .teams_watcher_status
   }, []);
-
-  const fetchStatus = useCallback(async (manual = false) => {
-    if (manual) {
-      setIsRefreshing(true);
-    }
-
-    try {
-      const res = await fetch(`/api/status?lines=${logLines}`);
-      const json = (await res.json()) as StatusApiResponse;
-      if (!res.ok) {
-        throw new Error("Failed to fetch watcher status");
-      }
-      applySnapshot(json);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Failed to fetch watcher status";
-      setStatusError(message);
-    } finally {
-      if (manual) {
-        setIsRefreshing(false);
-      }
-    }
-  }, [applySnapshot, logLines]);
-
-  useEffect(() => {
-    const storage =
-      typeof window !== "undefined" &&
-      typeof window.localStorage !== "undefined" &&
-      typeof window.localStorage.getItem === "function"
-        ? window.localStorage
-        : null;
-    const savedTheme = storage ? storage.getItem("teams-recorder-theme") : null;
-    if (savedTheme === "light" || savedTheme === "dark") {
-      setTheme(savedTheme);
-      return;
-    }
-
-    if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
-      const prefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
-      setTheme(prefersLight ? "light" : "dark");
-    }
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    if (
-      typeof window !== "undefined" &&
-      typeof window.localStorage !== "undefined" &&
-      typeof window.localStorage.setItem === "function"
-    ) {
-      window.localStorage.setItem("teams-recorder-theme", theme);
-    }
-  }, [theme]);
-
-  useEffect(() => {
-    let isMounted = true;
-    let pollingEnabled = false;
-    let reconnectCount = 0;
-    let pollTimer: ReturnType<typeof setTimeout> | null = null;
-    let stream: EventSource | null = null;
-
-    const clearPollTimer = () => {
-      if (pollTimer) {
-        clearTimeout(pollTimer);
-        pollTimer = null;
-      }
-    };
-
-    const startPollingFallback = () => {
-      if (!isMounted || pollingEnabled) {
-        return;
-      }
-
-      pollingEnabled = true;
-      const poll = async () => {
-        await fetchStatus();
-        if (isMounted && pollingEnabled) {
-          pollTimer = setTimeout(poll, STATUS_POLL_INTERVAL_MS);
-        }
-      };
-      void poll();
-    };
-
-    const startStream = () => {
-      if (typeof window === "undefined" || typeof window.EventSource !== "function") {
-        startPollingFallback();
-        return;
-      }
-
-      stream = new window.EventSource(`/api/status/stream?lines=${logLines}`);
-      stream.addEventListener("snapshot", (event: Event) => {
-        try {
-          const payload = JSON.parse((event as MessageEvent<string>).data) as StatusApiResponse;
-          applySnapshot(payload);
-          reconnectCount = 0;
-        } catch {
-          setStatusError("Received invalid live update payload");
-        }
-      });
-
-      stream.addEventListener("error", () => {
-        reconnectCount += 1;
-        if (reconnectCount >= LIVE_STATUS_RECONNECT_LIMIT) {
-          stream?.close();
-          stream = null;
-          setStatusError("Live updates unavailable. Falling back to polling.");
-          startPollingFallback();
-        }
-      });
-    };
-
-    void fetchStatus();
-    startStream();
-
-    return () => {
-      isMounted = false;
-      pollingEnabled = false;
-      clearPollTimer();
-      stream?.close();
-      stream = null;
-    };
-  }, [applySnapshot, fetchStatus, logLines]);
-
-  useEffect(() => {
-    if (!toast) {
-      return undefined;
-    }
-
-    const timeoutId = setTimeout(() => setToast(null), 3200);
-    return () => clearTimeout(timeoutId);
-  }, [toast]);
-
-  const handleControl = async (action: "start" | "restart" | "stop") => {
-    setControlPending(action);
-    try {
-      const res = await fetch("/api/control", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
-      const data = (await res.json()) as { message?: string; error?: string };
-      if (!res.ok) {
-        throw new Error(data.error || "Control action failed");
-      }
-
-      showToast("success", data.message || `Service ${action}ed`);
-      await fetchStatus(true);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Control action failed";
-      showToast("error", message);
-    } finally {
-      setControlPending(null);
-    }
-  };
-
-  const handleCompanionAction = async (
-    actionType: "retry_post_process" | "acknowledge_incident",
-    targetId: string
-  ) => {
-    setCompanionActionPending(actionType);
-    try {
-      const response = await fetch("/api/companion/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workspace_name: "teams_recorder",
-          action_type: actionType,
-          target_id: targetId,
-          requested_by: "dashboard_user",
-          requested_at_utc: new Date().toISOString(),
-        }),
-      });
-      const payload = (await response.json()) as { accepted?: boolean; error?: string };
-      if (!response.ok || !payload.accepted) {
-        throw new Error(payload.error || "Companion action failed");
-      }
-      showToast("success", `Companion action accepted: ${actionType.replace(/_/g, " ")}`);
-      await fetchStatus(true);
-    } catch (error) {
-      showToast("error", error instanceof Error ? error.message : "Companion action failed");
-    } finally {
-      setCompanionActionPending(null);
-    }
-  };
-
-  const actionExtractionQualityScore = (() => {
-    if (!logs.length) return 0;
-    const positiveSignals = logs.filter((line) =>
-      /(transcript|ready|processed|extracted|uploaded|completed)/i.test(line)
-    ).length;
-    return Math.round((positiveSignals / logs.length) * 100);
-  })();
 
   return (
-    <div className="min-h-screen bg-black text-white p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
-        
-        {/* Header */}
-        <div className="flex justify-between items-center">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
-                    Teams Watcher
-                </h1>
-                <p className="text-zinc-500">Automated Recording & Monitoring</p>
+    <main className="min-h-screen pt-32 pb-24 px-8 max-w-7xl mx-auto flex flex-col gap-12">
+      
+      {/* Floating Navigation */}
+      <nav className="floating-nav group">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-fuchsia-500 p-[1px]">
+            <div className="w-full h-full rounded-full bg-black flex items-center justify-center">
+              <Mic className="w-4 h-4 text-white" />
             </div>
-            <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  aria-label="Toggle theme"
-                  title="Toggle theme"
-                  onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-                >
-                  {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  aria-label="Refresh status"
-                  title="Refresh status"
-                  disabled={isRefreshing}
-                  onClick={() => fetchStatus(true)}
-                >
-                    {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                </Button>
-            </div>
+          </div>
+          <span className="font-bold tracking-tighter text-xl">TeamsRecorder</span>
         </div>
-
-        {statusError && (
-          <div className="bg-red-950/60 border border-red-800 text-red-300 rounded-lg px-4 py-3 text-sm flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            <span>{statusError}</span>
-          </div>
-        )}
-
-        {/* Top Status Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2">
-                <StatusHero 
-                    status={status.state ?? "unknown"} 
-                    meetingTitle={status.meeting} 
-                />
-            </div>
-            <div className="grid grid-rows-2 gap-4">
-                 <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col justify-center gap-4">
-                    <h3 className="text-zinc-400 text-sm font-medium">Service Control</h3>
-                    <div className="flex gap-2">
-                        <Button 
-                            disabled={controlPending !== null}
-                            aria-label="Start service"
-                            className="flex-1 bg-emerald-600 hover:bg-emerald-700" 
-                            onClick={() => handleControl('start')}
-                        >
-                            {controlPending === "start" ? (
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <Play className="h-4 w-4 mr-2" />
-                            )}
-                            Start
-                        </Button>
-                        <Button
-                            disabled={controlPending !== null}
-                            aria-label="Restart service"
-                            className="flex-1 bg-amber-600 hover:bg-amber-700"
-                            onClick={() => handleControl('restart')}
-                        >
-                            {controlPending === "restart" ? (
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <RotateCcw className="h-4 w-4 mr-2" />
-                            )}
-                            Restart
-                        </Button>
-                        <Button 
-                            disabled={controlPending !== null}
-                            aria-label="Stop service"
-                            className="flex-1 bg-red-600 hover:bg-red-700"
-                            onClick={() => handleControl('stop')}
-                        >
-                            {controlPending === "stop" ? (
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <Square className="h-4 w-4 mr-2" />
-                            )}
-                            Stop
-                        </Button>
-                    </div>
-                    {controlPending && (
-                      <p className="text-xs text-zinc-500">Applying `{controlPending}`...</p>
-                    )}
-                 </div>
-                 <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col justify-center">
-                    <div className="flex justify-between items-center">
-                        <span className="text-zinc-400 text-sm">Last Update</span>
-                        <span className="font-mono text-sm">{status.timestamp || "Never"}</span>
-                    </div>
-                 </div>
-            </div>
+        <div className="h-6 w-[1px] bg-white/10 mx-2" />
+        <div className="flex items-center gap-8 text-sm font-medium text-white/50 lowercase">
+          <a href="#" className="hover:text-cyan-400 transition-colors text-white">Dashboard</a>
+          <a href="#" className="hover:text-cyan-400 transition-colors">Archive</a>
+          <a href="#" className="hover:text-cyan-400 transition-colors">Settings</a>
         </div>
+      </nav>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-zinc-500">Return To Pending Action</p>
-              <h3 className="text-sm font-semibold text-white mt-1">Post-process queue requires follow-up</h3>
-              <p className="text-xs text-zinc-400 mt-2">
-                Retry stalled post-process operations and clear recorder backlog before starting a new capture window.
-              </p>
+      {/* Hero / Engine Status Section */}
+      <section className="animate-in grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 group relative">
+          <div className="premium-glow" />
+          <div className="glass-container p-8 h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-sm font-medium text-white/40 uppercase tracking-widest">Engine Status</h2>
+                <div className="flex items-center gap-3">
+                   <div className={`status-dot ${status === 'RECORDING' ? 'status-recording' : 'status-ready'}`} />
+                   <p className="text-3xl font-bold tracking-tight">System {status === 'RECORDING' ? 'Active' : 'Optimized'}</p>
+                </div>
+              </div>
+              <Activity className={`w-8 h-8 ${status === 'RECORDING' ? 'text-red-500 animate-pulse' : 'text-cyan-500'}`} />
             </div>
-            <Button
-              className="bg-indigo-600 hover:bg-indigo-700"
-              disabled={companionActionPending !== null}
-              onClick={() => handleCompanionAction("retry_post_process", "post_process_queue")}
-            >
-              {companionActionPending === "retry_post_process" ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : null}
-              Retry Pending Post-process
-            </Button>
-          </div>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-zinc-500">Acknowledgment</p>
-              <h3 className="text-sm font-semibold text-white mt-1">Incident review recommendation</h3>
-              <p className="text-xs text-zinc-400 mt-2">
-                Acknowledge the latest incident after validating transcript integrity and upload completion status.
-              </p>
+            
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-white/60 mb-1 text-sm font-mono">Current Polling: 1.0s</p>
+                <p className="text-white/40 text-xs font-mono uppercase tracking-tighter">Automatic Start/Stop Logic Enabled</p>
+              </div>
+              <button 
+                className={`py-3 px-8 rounded-2xl font-semibold flex items-center gap-2 border transition-all duration-300 ${status === 'RECORDING' ? 'bg-red-500/10 border-red-500/50 text-red-500 hover:bg-red-500/20' : 'bg-cyan-500/10 border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/20'}`}>
+                {status === 'RECORDING' ? <StopCircle className="w-5 h-5" /> : <PlayCircle className="w-5 h-5" />}
+                {status === 'RECORDING' ? 'Emergency Stop' : 'Force Record'}
+              </button>
             </div>
-            <Button
-              variant="outline"
-              disabled={companionActionPending !== null}
-              onClick={() => handleCompanionAction("acknowledge_incident", "latest_incident")}
-            >
-              {companionActionPending === "acknowledge_incident" ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : null}
-              Acknowledge Incident
-            </Button>
-          </div>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-zinc-500">Action Extraction Quality</p>
-              <h3 className="text-sm font-semibold text-white mt-1">Transcript action confidence score</h3>
-              <p className="text-xs text-zinc-400 mt-2">
-                Current extraction quality based on recent transcript and processing runtime signals.
-              </p>
-            </div>
-            <div className="w-full h-2 rounded bg-zinc-800 overflow-hidden">
-              <div
-                className="h-full bg-emerald-500 transition-all"
-                style={{ width: `${Math.max(0, Math.min(actionExtractionQualityScore, 100))}%` }}
-              />
-            </div>
-            <p className="text-sm font-semibold text-emerald-400">{actionExtractionQualityScore}%</p>
           </div>
         </div>
 
-        {/* Main Content Tabs */}
-        <Tabs defaultValue="logs" className="w-full">
-            <div className="flex items-center justify-between gap-4">
-              <TabsList className="bg-zinc-900 border border-zinc-800">
-                  <TabsTrigger value="logs">System Logs</TabsTrigger>
-                  <TabsTrigger value="recordings">Recordings</TabsTrigger>
-                  <TabsTrigger value="config">Configuration</TabsTrigger>
-              </TabsList>
-              <div className="flex items-center gap-2 text-xs text-zinc-400">
-                <span>Tail lines</span>
-                {[50, 100, 200].map((value) => (
-                  <Button
-                    key={value}
-                    size="sm"
-                    variant={value === logLines ? "default" : "outline"}
-                    className="h-7 px-2"
-                    onClick={() => setLogLines(value)}
-                  >
-                    {value}
-                  </Button>
-                ))}
+        <div className="glass-container p-8 group overflow-hidden">
+          <div className="relative z-10">
+            <h3 className="text-sm font-medium text-cyan-400/80 uppercase tracking-widest mb-6">Detection Signal</h3>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 group-hover:border-cyan-500/30 transition-colors">
+                <CheckCircle2 className="w-6 h-6 text-cyan-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">Teams Hook</p>
+                <p className="text-xs text-white/40">Active Integration</p>
               </div>
             </div>
-            <TabsContent value="logs" className="mt-4">
-                <LogViewer logs={logs} />
-            </TabsContent>
-            <TabsContent value="recordings" className="mt-4">
-                <RecordingsBrowser />
-            </TabsContent>
-            <TabsContent value="config" className="mt-4">
-                <ConfigEditor />
-            </TabsContent>
-        </Tabs>
-
-      </div>
-
-      {toast && (
-        <div className="fixed bottom-6 right-6 max-w-sm z-50">
-          <div
-            role="status"
-            aria-live="polite"
-            className={`rounded-lg border px-4 py-3 text-sm shadow-xl flex items-center gap-2 ${
-              toast.type === "success"
-                ? "bg-emerald-950/90 border-emerald-700 text-emerald-200"
-                : "bg-red-950/90 border-red-700 text-red-200"
-            }`}
-          >
-            {toast.type === "success" ? (
-              <CheckCircle2 className="h-4 w-4" />
-            ) : (
-              <XCircle className="h-4 w-4" />
-            )}
-            <span>{toast.message}</span>
+            <div className="flex items-center gap-4">
+               <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 group-hover:border-fuchsia-500/30 transition-colors">
+                <AlertCircle className="w-6 h-6 text-fuchsia-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">Applescript V2.5</p>
+                <p className="text-xs text-white/40">High Status</p>
+              </div>
+            </div>
           </div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 blur-[64px] rounded-full -mr-16 -mt-16 group-hover:bg-cyan-400/20 transition-all duration-700" />
         </div>
-      )}
-    </div>
+      </section>
+
+      {/* Recordings Section */}
+      <section className="animate-in [animation-delay:200ms] flex flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold tracking-tight">Recent Artifacts</h2>
+          <button className="flex items-center gap-2 text-sm text-cyan-400/80 hover:text-cyan-400 font-medium transition-colors">
+            View All Recordings <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-1 gap-4">
+          {recordings.map((recording) => (
+            <div key={recording.id} className="group glass-container p-6 hover:bg-white/[0.04] transition-all duration-500 cursor-pointer flex items-center justify-between border-white/[0.04] hover:border-white/10">
+              <div className="flex items-center gap-6">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-950 flex items-center justify-center border border-white/5 group-hover:scale-105 transition-transform">
+                  <Calendar className="w-6 h-6 text-zinc-500 group-hover:text-cyan-400 transition-colors" />
+                </div>
+                <div>
+                   <h3 className="font-semibold text-lg tracking-tight mb-1">{recording.name}</h3>
+                   <div className="flex items-center gap-4 text-xs font-mono text-white/30 uppercase tracking-tighter">
+                      <span className="flex items-center gap-1"><History className="w-3 h-3" /> {recording.duration}</span>
+                      <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> {recording.size}</span>
+                      <span className="text-cyan-400/60 font-bold">{recording.status}</span>
+                   </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                 <button className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-cyan-500/20 hover:text-cyan-400 transition-all duration-300">
+                    <Download className="w-4 h-4" />
+                 </button>
+                 <button className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all duration-300">
+                    <MoreHorizontal className="w-4 h-4" />
+                 </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Footer / Info */}
+      <footer className="mt-24 pt-12 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
+          <p className="text-white/20 text-xs font-mono tracking-widest uppercase">teams_recorder_v3.5 // build_optimized</p>
+          <div className="flex items-center gap-8 text-white/40 text-xs uppercase font-medium tracking-tighter">
+            <span className="hover:text-cyan-400 transition-colors cursor-pointer">Security Protocol</span>
+            <span className="hover:text-cyan-400 transition-colors cursor-pointer">System Logs</span>
+            <span className="hover:text-cyan-400 transition-colors cursor-pointer">API Integration</span>
+          </div>
+      </footer>
+    </main>
   );
 }
