@@ -4,16 +4,32 @@ import React, { useState, useEffect } from "react";
 import { Mic, Activity, Calendar, History, Settings, CheckCircle2, AlertCircle, PlayCircle, StopCircle, ChevronRight, Download, MoreHorizontal } from "lucide-react";
 
 export default function Dashboard() {
-  const [status, setStatus] = useState("IDLE");
+  const [status, setStatus] = useState("UNKNOWN");
+  const [logs, setLogs] = useState<string[]>([]);
   const [recordings, setRecordings] = useState([
     { id: 1, name: "Meeting - Hithium Quotation", date: "Today, 10:15 AM", duration: "1h 12m", size: "42.5 MB", status: "Processed" },
     { id: 2, name: "Internal Sync - StrategyOS", date: "Yesterday, 2:30 PM", duration: "45m 10s", size: "18.2 MB", status: "Transcribing" },
     { id: 3, name: "Client Call - gunnerCooke", date: "April 1, 9:00 AM", duration: "32m 05s", size: "12.8 MB", status: "Ready" },
   ]);
 
-  // Simulate status polling
+  // Real-time polling
   useEffect(() => {
-    // In real app, we would fetch from API or read from .teams_watcher_status
+    const fetchStatus = async () => {
+      try {
+        const response = await fetch("/api/status");
+        if (response.ok) {
+          const data = await response.json();
+          setStatus(data.status.state?.toUpperCase() || "IDLE");
+          setLogs(data.logs || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch engine status:", error);
+      }
+    };
+
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 1500); // Poll every 1.5s
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -27,7 +43,7 @@ export default function Dashboard() {
               <Mic className="w-4 h-4 text-white" />
             </div>
           </div>
-          <span className="font-bold tracking-tighter text-xl">TeamsRecorder</span>
+          <span className="font-bold tracking-tighter text-xl text-white">TeamsRecorder</span>
         </div>
         <div className="h-6 w-[1px] bg-white/10 mx-2" />
         <div className="flex items-center gap-8 text-sm font-medium text-white/50 lowercase">
@@ -46,8 +62,8 @@ export default function Dashboard() {
               <div className="flex flex-col gap-1">
                 <h2 className="text-sm font-medium text-white/40 uppercase tracking-widest">Engine Status</h2>
                 <div className="flex items-center gap-3">
-                   <div className={`status-dot ${status === 'RECORDING' ? 'status-recording' : 'status-ready'}`} />
-                   <p className="text-3xl font-bold tracking-tight">System {status === 'RECORDING' ? 'Active' : 'Optimized'}</p>
+                   <div className={`status-dot ${status === 'RECORDING' || status === 'STARTING' ? 'status-recording' : 'status-ready'}`} />
+                   <p className="text-3xl font-bold tracking-tight text-white">{status === 'RECORDING' ? 'Recording Active' : status === 'IDLE' ? 'System Optimized' : 'Waking Up...'}</p>
                 </div>
               </div>
               <Activity className={`w-8 h-8 ${status === 'RECORDING' ? 'text-red-500 animate-pulse' : 'text-cyan-500'}`} />
@@ -55,28 +71,33 @@ export default function Dashboard() {
             
             <div className="flex items-end justify-between">
               <div>
-                <p className="text-white/60 mb-1 text-sm font-mono">Current Polling: 1.0s</p>
-                <p className="text-white/40 text-xs font-mono uppercase tracking-tighter">Automatic Start/Stop Logic Enabled</p>
+                <p className="text-white/60 mb-1 text-sm font-mono tracking-tighter text-cyan-400/80">Real-time Telemetry Enabled</p>
+                <div className="max-h-12 overflow-hidden text-[10px] font-mono text-white/20 uppercase tracking-tight leading-tight">
+                  {logs.length > 0 ? logs[logs.length - 1] : 'Waiting for log signal...'}
+                </div>
               </div>
-              <button 
-                className={`py-3 px-8 rounded-2xl font-semibold flex items-center gap-2 border transition-all duration-300 ${status === 'RECORDING' ? 'bg-red-500/10 border-red-500/50 text-red-500 hover:bg-red-500/20' : 'bg-cyan-500/10 border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/20'}`}>
-                {status === 'RECORDING' ? <StopCircle className="w-5 h-5" /> : <PlayCircle className="w-5 h-5" />}
-                {status === 'RECORDING' ? 'Emergency Stop' : 'Force Record'}
-              </button>
+              <div className="flex flex-col items-end gap-2">
+                 <p className="text-[10px] font-mono text-white/30 uppercase">Local Watcher: v3.5</p>
+                 <button 
+                  className={`py-3 px-8 rounded-2xl font-semibold flex items-center gap-2 border transition-all duration-300 ${status === 'RECORDING' ? 'bg-red-500/10 border-red-500/50 text-red-500 hover:bg-red-500/20' : 'bg-cyan-500/10 border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/20'}`}>
+                  {status === 'RECORDING' ? <StopCircle className="w-5 h-5" /> : <PlayCircle className="w-5 h-5" />}
+                  {status === 'RECORDING' ? 'End Capture' : 'Initiate Mock'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="glass-container p-8 group overflow-hidden">
+        <div className="glass-container p-8 group overflow-hidden relative">
           <div className="relative z-10">
-            <h3 className="text-sm font-medium text-cyan-400/80 uppercase tracking-widest mb-6">Detection Signal</h3>
+            <h3 className="text-sm font-medium text-cyan-400/80 uppercase tracking-widest mb-6">Detection Logic</h3>
             <div className="flex items-center gap-4 mb-4">
               <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 group-hover:border-cyan-500/30 transition-colors">
                 <CheckCircle2 className="w-6 h-6 text-cyan-400" />
               </div>
               <div>
-                <p className="text-sm font-semibold">Teams Hook</p>
-                <p className="text-xs text-white/40">Active Integration</p>
+                <p className="text-sm font-semibold text-white">Teams pgrep Hook</p>
+                <p className="text-[10px] text-white/40 uppercase font-mono">Status: Verified</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -84,8 +105,8 @@ export default function Dashboard() {
                 <AlertCircle className="w-6 h-6 text-fuchsia-400" />
               </div>
               <div>
-                <p className="text-sm font-semibold">Applescript V2.5</p>
-                <p className="text-xs text-white/40">High Status</p>
+                <p className="text-sm font-semibold text-white">AppleScript Sync</p>
+                <p className="text-[10px] text-white/40 uppercase font-mono">Interval: 60s</p>
               </div>
             </div>
           </div>
@@ -95,8 +116,8 @@ export default function Dashboard() {
 
       {/* Recordings Section */}
       <section className="animate-in [animation-delay:200ms] flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">Recent Artifacts</h2>
+        <div className="flex items-center justify-between px-2">
+          <h2 className="text-2xl font-bold tracking-tight text-white">Recent Artifacts</h2>
           <button className="flex items-center gap-2 text-sm text-cyan-400/80 hover:text-cyan-400 font-medium transition-colors">
             View All Recordings <ChevronRight className="w-4 h-4" />
           </button>
@@ -110,7 +131,7 @@ export default function Dashboard() {
                   <Calendar className="w-6 h-6 text-zinc-500 group-hover:text-cyan-400 transition-colors" />
                 </div>
                 <div>
-                   <h3 className="font-semibold text-lg tracking-tight mb-1">{recording.name}</h3>
+                   <h3 className="font-semibold text-lg tracking-tight mb-1 text-white">{recording.name}</h3>
                    <div className="flex items-center gap-4 text-xs font-mono text-white/30 uppercase tracking-tighter">
                       <span className="flex items-center gap-1"><History className="w-3 h-3" /> {recording.duration}</span>
                       <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> {recording.size}</span>
@@ -119,10 +140,10 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                 <button className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-cyan-500/20 hover:text-cyan-400 transition-all duration-300">
+                 <button className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-cyan-500/20 text-white/40 hover:text-cyan-400 transition-all duration-300">
                     <Download className="w-4 h-4" />
                  </button>
-                 <button className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all duration-300">
+                 <button className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 text-white/40 transition-all duration-300">
                     <MoreHorizontal className="w-4 h-4" />
                  </button>
               </div>
@@ -132,12 +153,12 @@ export default function Dashboard() {
       </section>
 
       {/* Footer / Info */}
-      <footer className="mt-24 pt-12 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
-          <p className="text-white/20 text-xs font-mono tracking-widest uppercase">teams_recorder_v3.5 // build_optimized</p>
+      <footer className="mt-24 pt-12 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 opacity-40">
+          <p className="text-white/40 text-xs font-mono tracking-widest uppercase">teams_recorder_v3.5 // build_optimized</p>
           <div className="flex items-center gap-8 text-white/40 text-xs uppercase font-medium tracking-tighter">
-            <span className="hover:text-cyan-400 transition-colors cursor-pointer">Security Protocol</span>
-            <span className="hover:text-cyan-400 transition-colors cursor-pointer">System Logs</span>
-            <span className="hover:text-cyan-400 transition-colors cursor-pointer">API Integration</span>
+             <span>Security Protocol</span>
+             <span>System Logs</span>
+             <span>API Integration</span>
           </div>
       </footer>
     </main>

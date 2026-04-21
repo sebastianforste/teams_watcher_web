@@ -9,7 +9,7 @@
     "lint": "eslint",
     "test": "vitest",
     "type-check": "tsc --noEmit",
-    "check": "npm run lint && npm run type-check && npm run test -- --run"
+    "check": "bun run lint && bun run type-check && bun run test -- --run"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
